@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from mail_notification import send_email_notification
 
-# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
