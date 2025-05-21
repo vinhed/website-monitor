@@ -127,9 +127,10 @@ class WebsiteMonitor:
             
             if element is None:
                 logging.warning(f"Element with selector '{css_selector}' not found on {site_name}")
-                return False, None
+                current_content = "<Element not found>"
+            else:
+                current_content = element.get_text().strip()
             
-            current_content = element.get_text().strip()
             previous_content = None if site_id not in self.site_states else self.site_states[site_id]["content"]
             
             if previous_content is None:
