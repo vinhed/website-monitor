@@ -175,3 +175,4 @@ cython_debug/
 
 # Custom
 monitor_data
+config.json
