@@ -5,7 +5,7 @@ A simple tool that checks websites for content changes and sends notifications.
 ## Features
 
 - Monitor multiple websites
-- Email notifications
+- Email notifications to different emails
 - Random check intervals
 - Persistent monitoring state
 
@@ -41,6 +41,13 @@ pip install requests beautifulsoup4
     "sender": "your-email@gmail.com",
     "recipient": "your-email@gmail.com",
     "use_tls": true
+  },
+  "logging": {
+    "console_enabled": false,
+    "level": "INFO",
+    "max_file_size_mb": 5,
+    "backup_count": 3,
+    "quiet_mode": true
   }
 }
 ```

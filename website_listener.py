@@ -3,18 +3,10 @@ import json
 import time
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from bs4 import BeautifulSoup
 from datetime import datetime
 from mail_notification import send_email_notification
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("website_monitor.log"),
-        logging.StreamHandler()
-    ]
-)
 
 class WebsiteMonitor:
     def __init__(self, config_path="config.json"):
@@ -22,46 +14,51 @@ class WebsiteMonitor:
         self.data_dir = "monitor_data"
         self.ensure_data_dir_exists()
         self.load_config()
+        self.setup_logging()
         self.site_states = {}
         self.load_previous_states()
+
+    def setup_logging(self):
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+        
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        
+        log_config = self.config.get("logging", {})
+        max_file_size = log_config.get("max_file_size_mb", 5) * 1024 * 1024
+        backup_count = log_config.get("backup_count", 3)
+        
+        file_handler = RotatingFileHandler(
+            "website_monitor.log", 
+            maxBytes=max_file_size,
+            backupCount=backup_count,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        
+        if log_config.get("console_enabled", True):
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
+        
+        log_level = log_config.get("level", "INFO").upper()
+        if hasattr(logging, log_level):
+            logger.setLevel(getattr(logging, log_level))
 
     def load_config(self):
         try:
             if os.path.exists(self.config_path):
                 with open(self.config_path, 'r') as f:
                     self.config = json.load(f)
-                logging.info(f"Configuration loaded from {self.config_path}")
+                print(f"Configuration loaded from {self.config_path}")
             else:
-                self.config = {
-                    "sites": [
-                        {
-                            "id": "example-product",
-                            "name": "Example Product Page",
-                            "url": "https://example.com/product",
-                            "check_interval_minutes": 5,
-                            "css_selector": ".product-availability",
-                            "headers": {
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                            }
-                        }
-                    ],
-                    "email": {
-                        "enabled": False,
-                        "smtp_server": "smtp.gmail.com",
-                        "smtp_port": 587,
-                        "smtp_username": "your-email@gmail.com",
-                        "smtp_password": "your-password-or-app-password",
-                        "sender": "your-email@gmail.com",
-                        "recipient": "your-email@gmail.com",
-                        "use_tls": True,
-                        "use_ssl": False
-                    }
-                }
-                with open(self.config_path, 'w') as f:
-                    json.dump(self.config, f, indent=4)
-                logging.info(f"Default configuration created at {self.config_path}")
+                print(f"Please configure a conifg file at {self.config_path}")
         except Exception as e:
-            logging.error(f"Error loading configuration: {e}")
+            print(f"Error loading configuration: {e}")
             raise
         
     def ensure_data_dir_exists(self):
@@ -104,20 +101,24 @@ class WebsiteMonitor:
                 json.dump(state, f, indent=4)
             
             self.site_states[site_id] = state
-            logging.info(f"Saved state for site: {site_id}")
+            logging.debug(f"Saved state for site: {site_id}")
         except Exception as e:
             logging.error(f"Failed to save state for site {site_id}: {e}")
     
     def check_website(self, site_config):
         site_id = site_config["id"]
         site_name = site_config.get("name", site_id)
+        quiet_mode = self.config.get("logging", {}).get("quiet_mode", False)
         
         try:
             url = site_config["url"]
             headers = site_config.get("headers", {})
             css_selector = site_config["css_selector"]
             
-            logging.info(f"Checking site: {site_name} ({url})")
+            if not quiet_mode:
+                logging.info(f"Checking site: {site_name} ({url})")
+            else:
+                logging.debug(f"Checking site: {site_name} ({url})")
             
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
@@ -147,10 +148,12 @@ class WebsiteMonitor:
                     "site_name": site_name,
                     "url": url,
                     "old": old_content, 
-                    "new": current_content
+                    "new": current_content,
+                    "email_recipient": site_config.get("email_recipient")
                 }
             
-            logging.info(f"No changes detected for {site_name}")
+            if not quiet_mode:
+                logging.debug(f"No changes detected for {site_name}")
             return False, None
             
         except Exception as e:
@@ -182,6 +185,10 @@ class WebsiteMonitor:
         try:
             site_count = len(self.config["sites"])
             logging.info(f"Starting to monitor {site_count} website{'s' if site_count > 1 else ''}")
+            
+            quiet_mode = self.config.get("logging", {}).get("quiet_mode", False)
+            if quiet_mode:
+                logging.info("Running in quiet mode - reduced console output")
             
             next_checks = {}
             last_intervals = {}
@@ -216,14 +223,18 @@ class WebsiteMonitor:
                         
                         if last_intervals[site_id] != interval_minutes:
                             last_intervals[site_id] = interval_minutes
-                            logging.info(f"Next check for {site_name} in {interval_minutes:.2f} minutes")
+                            if not quiet_mode:
+                                logging.info(f"Next check for {site_name} in {interval_minutes:.2f} minutes")
+                            else:
+                                logging.debug(f"Next check for {site_name} in {interval_minutes:.2f} minutes")
                 
                 min_next_check = min(next_checks.values())
                 wait_time = max(1, min_next_check - time.time())
                 
-                next_site_id = min(next_checks, key=next_checks.get)
-                next_site_name = next((site.get("name", site["id"]) for site in self.config["sites"] if site["id"] == next_site_id), next_site_id)
-                logging.info(f"Sleeping for {wait_time:.2f} seconds until next check ({next_site_name})")
+                if not quiet_mode:
+                    next_site_id = min(next_checks, key=next_checks.get)
+                    next_site_name = next((site.get("name", site["id"]) for site in self.config["sites"] if site["id"] == next_site_id), next_site_id)
+                    logging.debug(f"Sleeping for {wait_time:.2f} seconds until next check ({next_site_name})")
                 
                 time.sleep(wait_time)
             
