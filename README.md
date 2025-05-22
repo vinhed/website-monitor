@@ -16,7 +16,7 @@ A Python-based tool that monitors websites for content changes and sends beautif
 ## 🚀 Installation
 
 ```bash
-pip install requests beautifulsoup4
+pip install -r requirements.txt
 ```
 
 ## 📖 Usage
