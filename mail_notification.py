@@ -7,9 +7,26 @@ import smtplib
 def send_email_notification(change_info, config):
     email_config = config["email"]
     
-    recipient = change_info.get("email_recipient", email_config["recipient"])
-    if recipient is None:
-        recipient = email_config["recipient"]
+    site_recipients = change_info.get("recipients", [])
+    global_recipients = email_config.get("recipients", email_config.get("recipient", []))
+    
+    if isinstance(site_recipients, str):
+        site_recipients = [site_recipients]
+    elif site_recipients is None:
+        site_recipients = []
+    
+    if isinstance(global_recipients, str):
+        global_recipients = [global_recipients]
+    elif global_recipients is None:
+        global_recipients = []
+    
+    recipients = site_recipients if site_recipients else global_recipients
+    
+    if not recipients:
+        logging.warning("No email recipients configured")
+        return
+    
+    recipients = list(dict.fromkeys(recipients))
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     site_name = change_info["site_name"]
@@ -265,13 +282,13 @@ def send_email_notification(change_info, config):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
     msg['From'] = email_config["sender"]
-    msg['To'] = recipient
+    msg['To'] = ', '.join(recipients)
     
     msg.attach(MIMEText(text, 'plain'))
     msg.attach(MIMEText(html, 'html'))
 
     _send_email(msg, config)
-    logging.info(f"Email notification sent to {recipient}")
+    logging.info(f"Email notification sent to {len(recipients)} recipient(s): {', '.join(recipients)}")
 
 def _send_email(msg, config):
     email_config = config["email"]

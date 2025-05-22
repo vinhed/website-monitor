@@ -149,7 +149,7 @@ class WebsiteMonitor:
                     "url": url,
                     "old": old_content, 
                     "new": current_content,
-                    "email_recipient": site_config.get("email_recipient")
+                    "recipients": site_config.get("recipients", site_config.get("recipients"))
                 }
             
             if not quiet_mode:
