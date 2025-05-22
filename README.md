@@ -1,6 +1,6 @@
 # Website Monitor
 
-A Python-based tool that monitors websites for content changes and sends beautiful email notifications. Perfect for tracking product availability, price changes, or any website content updates.
+A Python-based tool that monitors websites for content changes and sends email notifications. Perfect for tracking product availability, price changes, or any website content updates.
 
 ## ✨ Features
 
