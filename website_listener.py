@@ -121,16 +121,17 @@ class WebsiteMonitor:
                 logging.debug(f"Checking site: {site_name} ({url})")
             
             response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            element = soup.select_one(css_selector)
-            
-            if element is None:
-                logging.warning(f"Element with selector '{css_selector}' not found on {site_name}")
-                current_content = "<Element not found>"
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                element = soup.select_one(css_selector)
+                
+                if element is None:
+                    logging.warning(f"Element with selector '{css_selector}' not found on {site_name}")
+                    current_content = "<Element not found>"
+                else:
+                    current_content = element.get_text().strip()
             else:
-                current_content = element.get_text().strip()
+                current_content = f"Status Code: {response.status_code}"
             
             previous_content = None if site_id not in self.site_states else self.site_states[site_id]["content"]
             
