@@ -3,6 +3,7 @@ import json
 import time
 import os
 import logging
+import re
 from logging.handlers import RotatingFileHandler
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -105,6 +106,29 @@ class WebsiteMonitor:
         except Exception as e:
             logging.error(f"Failed to save state for site {site_id}: {e}")
     
+    def find_element_by_selector(self, soup, css_selector):
+        try:
+            element = soup.select_one(css_selector)
+            if element:
+                return element
+        except Exception:
+            pass
+        
+        is_regex = css_selector.startswith('regex:')
+        if is_regex:
+            regex_pattern = css_selector[6:]
+            try:
+                compiled_regex = re.compile(regex_pattern)
+                for element in soup.find_all():
+                    if element.get('class'):
+                        class_str = ' '.join(element.get('class'))
+                        if compiled_regex.search(class_str):
+                            return element
+            except re.error as e:
+                logging.error(f"Invalid regex pattern '{regex_pattern}': {e}")
+        
+        return None
+
     def check_website(self, site_config):
         site_id = site_config["id"]
         site_name = site_config.get("name", site_id)
@@ -123,7 +147,7 @@ class WebsiteMonitor:
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
-                element = soup.select_one(css_selector)
+                element = self.find_element_by_selector(soup, css_selector)
                 
                 if element is None:
                     logging.warning(f"Element with selector '{css_selector}' not found on {site_name}")
@@ -190,6 +214,16 @@ class WebsiteMonitor:
             quiet_mode = self.config.get("logging", {}).get("quiet_mode", False)
             if quiet_mode:
                 logging.info("Running in quiet mode - reduced console output")
+            
+            logging.info("Performing initial startup checks...")
+            for site_config in self.config["sites"]:
+                site_name = site_config.get("name", site_config["id"])
+                logging.info(f"Startup check for {site_name}")
+                changed, change_info = self.check_website(site_config)
+                if changed:
+                    self.send_notification(change_info)
+            
+            logging.info("Startup checks complete. Beginning regular monitoring...")
             
             next_checks = {}
             last_intervals = {}

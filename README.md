@@ -109,13 +109,31 @@ pip install -r requirements.txt
 - **Priority**: Site-specific recipients take precedence over global recipients
 - **Duplicate Removal**: Automatically removes duplicate email addresses while preserving order
 
+## 🎯 CSS Selector Support
+
+### Regular CSS Selectors
+Use standard CSS selectors to target specific elements:
+```json
+"css_selector": ".product-status"
+"css_selector": "#availability-info"
+```
+
+### Regex CSS Selectors
+Use regex patterns to match CSS classes dynamically by prefixing with `regex:`:
+```json
+"css_selector": "regex:InfoBlock_info-text.*"
+"css_selector": "regex:product-\\d+-status"
+```
+
+This is useful when websites use dynamic CSS class names or when you want to match multiple similar classes.
+
 ## 🔧 Configuration Options
 
 ### Site Settings
 - **`id`** - Unique identifier for the site
 - **`name`** - Display name for notifications
 - **`url`** - Website URL to monitor
-- **`css_selector`** - CSS selector for the content to watch
+- **`css_selector`** - CSS selector for the content to watch (supports regex with `regex:` prefix)
 - **`min_check_interval_minutes`** - Minimum time between checks
 - **`max_check_interval_minutes`** - Maximum time between checks
 - **`recipients`** - (Optional) array of site-specific email addresses
